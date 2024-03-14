@@ -1,5 +1,5 @@
-
-import torch
+import mindspore as ms
+import mindspore.ops as ops
 import os.path as osp
 import math
 from glob import glob
@@ -7,6 +7,7 @@ import os
 import cv2
 import numpy as np
 from .EMPixelCorres import glob_imgs
+
 def EMCompAlphaMatte(bkcols, obj_folder, epsilon, index, save_alpha_path, model_dir, fscale=0.25):
     save_path = osp.join(model_dir, 'mask/')
     if not os.path.exists(save_path):
@@ -15,7 +16,7 @@ def EMCompAlphaMatte(bkcols, obj_folder, epsilon, index, save_alpha_path, model_
     obj_img = sorted(glob_imgs(obj_folder))
     img_cnt = len(bkcols)
     for i in range(img_cnt):
-        Color = torch.from_numpy(
+        Color = ms.Tensor(
             cv2.cvtColor(
                 cv2.GaussianBlur(
                     cv2.resize(cv2.imread(obj_img[i]), None, fx=fscale, fy=fscale, interpolation=cv2.INTER_CUBIC)
@@ -24,10 +25,10 @@ def EMCompAlphaMatte(bkcols, obj_folder, epsilon, index, save_alpha_path, model_
         ).float()
         bkcol = bkcols[i]
         [m, n] = bkcol.shape
-        alpha = torch.zeros((m, n))
+        alpha = ops.zeros((m, n))
 
         delta = (Color - bkcol)[:, :, None]
-        mask = torch.sqrt(torch.sum(delta * delta, dim=2).float()) > epsilon
+        mask = ops.sqrt(ops.sum(delta * delta, dim=2).float()) > epsilon
         mask = mask[:, :, None].repeat((1, 1, 3))
         alpha[mask[..., 0]] = 1
         if i==0:

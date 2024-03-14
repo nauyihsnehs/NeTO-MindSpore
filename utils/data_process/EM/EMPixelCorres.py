@@ -3,7 +3,8 @@ import numpy as np
 from glob import glob
 import os.path as osp
 import cv2
-import torch
+import mindspore as ms
+import mindspore.ops as ops
 import os
 
 def glob_imgs(path):
@@ -27,7 +28,7 @@ def EmPixelTroch(img_path, alpha_path, index, model_dir, fscale=0.25):
     if len_image % 2!=0:
         assert 'there is a fault in image number!'
 
-    power = torch.flipud(2 ** torch.from_numpy(np.arange(half)))
+    power = ops.flipud(2 ** ms.Tensor(np.arange(half)))
     all_img_np = []
 
     for i in range(len(all_img_list)):
@@ -35,19 +36,19 @@ def EmPixelTroch(img_path, alpha_path, index, model_dir, fscale=0.25):
             cv2.resize(cv2.imread(all_img_list[i]), None, fx=fscale, fy=fscale, interpolation=cv2.INTER_CUBIC),
 
                                        cv2.COLOR_BGR2GRAY))
-    all_imgs = torch.from_numpy(np.stack(np.array(all_img_np) / 255.0, axis=0))
+    all_imgs = ms.Tensor(np.stack(np.array(all_img_np) / 255.0, axis=0))
     H, W = all_imgs.shape[1], all_imgs.shape[2]
     if not osp.exists(alpha_path):
         assert 'there is np alpha matt image!'
     else:
         alpha_matte = cv2.cvtColor(cv2.imread(alpha_path), cv2.COLOR_BGR2GRAY) > 127
-        alpha_matte = torch.from_numpy(alpha_matte)
+        alpha_matte = ms.Tensor(alpha_matte)
     if alpha_matte.shape[0] != H or alpha_matte.shape[1] != W:
         assert 'Alpha matte is no consistent size with image'
 
-    corresp = torch.zeros((H, W, 2)).int() # row and col index
+    corresp = ops.zeros((H, W, 2)).int() # row and col index
     m = pow(2, half)
-    z = torch.zeros((m, 1)).int()
+    z = ops.zeros((m, 1)).int()
     for i in range(0, 1 << half):
         z[i] = i ^ (i >> 1) #2048 1
 
@@ -62,20 +63,20 @@ def EmPixelTroch(img_path, alpha_path, index, model_dir, fscale=0.25):
     v2 = v[:, half:].sum(dim=1).int()
     z = z.permute(1,0).repeat(v.shape[0],1)
     #
-    index = torch.where(z == v1.unsqueeze(1).repeat(1, m))
-    temp[:, :1] = (index[1]+1).unsqueeze(1)
+    index = ops.where(z == v1.unsqueeze(1).repeat(1, m))
+    temp[:, :1] = (index[1] + 1).unsqueeze(1)
     #
-    index = torch.where(z == v2.unsqueeze(1).repeat(1, m))
+    index = ops.where(z == v2.unsqueeze(1).repeat(1, m))
     temp[:, 1:] = (index[1] + 1).unsqueeze(1)
 
-    temp[torch.where((torch.max(v,dim=1).values-torch.min(v,dim=1).values) == 0)] = -2
+    temp[ops.where((ops.max(v,axis=1).values-ops.min(v,axis=1).values) == 0)] = -2
     corresp[alpha_matte.bool()] = temp
     #compute light map
     # no_light_map = torch.zeros_like(alpha_matte)
     light_temp = alpha_matte[alpha_matte.bool()]
-    light_temp[torch.where((torch.max(v,dim=1).values-torch.min(v,dim=1).values) == 0)]=0
+    light_temp[ops.where((ops.max(v,axis=1).values-ops.min(v,axis=1).values) == 0)]=0
     #
-    light_map = torch.zeros((H, W)).bool()
+    light_map = ops.zeros((H, W)).bool()
     light_map[alpha_matte.bool()] = light_temp
     light_map = light_map[:,:,None].repeat(1,1,3)
 

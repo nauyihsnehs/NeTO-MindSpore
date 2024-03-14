@@ -1,6 +1,8 @@
+# NeTO
 
+### MindSpore implement of
 
-# NeTO:Neural Reconstruction of Transparent Objects with Self-Occlusion Aware Refraction-Tracing (ICCV 2023)
+NeTO: Neural Reconstruction of Transparent Objects with Self-Occlusion Aware Refraction-Tracing (ICCV 2023)
 
 ## [Project Page](https://www.xxlong.site/NeTO/) | [Paper](https://arxiv.org/pdf/2303.11219.pdf) | [Data](https://drive.google.com/drive/folders/1gSLI58O8FRN_Dq_Zjv6z3W2jfvqnE7Jo?usp=drive_link)
 
@@ -9,6 +11,7 @@
 ![](./docs/images/teaser.png)
 
 ## Introduction
+
  We present a novel method called NeTO, for capturing the 3D geometry of solid transparent objects from 2D images via volume rendering. 
     Reconstructing transparent objects is a very challenging task, which is ill-suited for general-purpose reconstruction techniques due to the specular light transport phenomena.
     Although existing refraction-tracing-based methods, designed especially for this task, achieve impressive results, they still suffer from unstable optimization and loss of fine details since the explicit surface representation they adopted is difficult to be optimized, and the self-occlusion problem is ignored for refraction-tracing.
@@ -16,8 +19,8 @@
     The implicit representation enables our method to be capable of reconstructing high-quality reconstruction even with a limited set of views, and the self-occlusion aware strategy makes it possible for our method to accurately reconstruct the self-occluded regions. 
     Experiments show that our method achieves faithful reconstruction results and outperforms prior works by a large margin.
 
-
 #### Data Convention
+
 The data is organized as follows:
 
 ```
@@ -36,53 +39,32 @@ The data is organized as follows:
 
 Here the `cameras_xxx.npz` follows the data format in [IDR](https://github.com/lioryariv/idr/blob/main/DATA_CONVENTION.md), where `world_mat_xx` denotes the world to image projection matrix, and `scale_mat_xx` denotes the normalization matrix.
 
+### Dependencies
 
-### Setup
-
-Clone this repository
-```shell
-git clone https://github.com/xxlong0/NeTO.git
-cd NeTO
-conda create -n neto python=3.8
-conda activate neto
-pip install -r requirements.txt
-```
-
-<details>
-  <summary> Dependencies (click to expand) </summary>
-
-  - torch==1.8.0
-  - opencv_python==4.5.2.52
-  - trimesh==3.9.8 
-  - numpy==1.19.2
-  - pyhocon==0.3.57
-  - icecream==2.1.0
-  - tqdm==4.50.2
-  - scipy==1.7.0
-  - PyMCubes==0.1.2
-  - tensorboard==2.14.0
-</details>
+- mindspore==2.1.1
+- trimesh==3.9.8 
+- pyhocon==0.3.57
+- icecream==2.1.0
+- PyMCubes==0.1.2
 
 ### Running
+
+- **Pretrained Data**
+4 pretrained MindSpore models are available at [release](https://github.com/nauyihsnehs/NeTO-MindSpore/releases).
+
 - **Training**
 
 ```shell
-python NeTO.py --mode train --conf ./confs/base.conf --case <case_name>
+python NeTO.py --mode train --conf ./confs/base9.conf --case <case_name>
 ```
 
-- **Extract surface from trained model** 
+- **Testing** 
 
 ```shell
-python NeTO.py --mode validate_mesh --conf <config_file> --case <case_name> --is_continue # use latest checkpoint
+python NeTO.py --mode test --conf <config_file> --case <case_name>
 ```
 
 The corresponding mesh can be found in `exp/<case_name>/<exp_name>/meshes/<iter_steps>.ply`.
-
-<!-- ### Train NeTO with your custom data
-```shell
-cd utils/data_process
-python process_transparent.py --path <image path> --mode <case_name>  
-``` -->
 
 ## Citation
 

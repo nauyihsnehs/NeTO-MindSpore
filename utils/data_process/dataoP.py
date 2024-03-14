@@ -1,5 +1,12 @@
+# -*- coding: utf-8 -*-
+""" 
+@Time    : 2023/8/12 15:45
+@Author  : HCF
+@FileName: dataoP.py
+@SoftWare: PyCharm
+"""
+
 import argparse
-import torch
 import numpy as np
 import cv2
 import h5py
@@ -9,9 +16,7 @@ from glob import glob
 import trimesh
 import os
 from skimage import measure
-"""
-Get the few views data from *.h5
-"""
+
 
 def load_mask(file, fscale=1):
     # img = cv2.imread(file, cv2.COLOR_BGR2GRAY)
@@ -22,7 +27,6 @@ def load_mask(file, fscale=1):
     mask = np.zeros_like(img)
     mask[img>127] = 1
     return mask
-
 def load_h5(h5_path, mask_path, n_images=72, division=4):
     h5data = h5py.File(h5_path, 'r')
     mask_pathes = sorted(glob(os.path.join(mask_path, '*.png')))
@@ -138,11 +142,13 @@ def compute_visualhull(masks, K, projections, mesh_path, box=250):
         coordCam = coordCam.squeeze(4)
         xCam = coordCam[:, :, :, 0] / coordCam[:, :, :, 2]
         yCam = coordCam[:, :, :, 1] / coordCam[:, :, :, 2]
+        #体素空间中每一个点的像素坐标
         xId = xCam * f + cxp
         yId = -yCam * f + cyp
 
         xInd = np.logical_and(xId >= 0, xId < imgW - 0.5)
         yInd = np.logical_and(yId >= 0, yId < imgH - 0.5)
+        #体素空间中能投影到这个像素平面的3D点mask
         imInd = np.logical_and(xInd, yInd)
 
         xImId = np.round(xId[imInd]).astype(np.int32)
@@ -151,23 +157,23 @@ def compute_visualhull(masks, K, projections, mesh_path, box=250):
         maskInd = mask[yImId * imgW + xImId]
 
         volumeInd = imInd.copy()
-
+        #能投影到像素平面上的3D点 将他的值变为mask中对应像素点的值
         volumeInd[imInd == 1] = maskInd
-
+        #==0 表明这个3D点不能投影到mask 内
         volume[volumeInd == 0] = 1
         print('Occupied voxel: %d' % np.sum((volume > 0).astype(np.float32)))
 
         verts, faces, normals, _ = measure.marching_cubes_lewiner(volume, 0)
-
+        #verts 在体素空间中的顶点 需要换成在世界坐标系下的距离
         print('Vertices Num: %d' % verts.shape[0])
         print('Normals Num: %d' % normals.shape[0])
         print('Faces Num: %d' % faces.shape[0])
 
         axisLen = float(resolution - 1) / 2.0
-
+        #分辨率 顶点在真实世界中的3D坐标
         verts = (verts - axisLen) / axisLen * box
         mesh = trimesh.Trimesh(vertices=verts, vertex_normals=normals, faces=faces)
-
+        # mesh.export(mesh_path)
     print('Export final mesh !')
     print(mesh_path)
     mesh.export(mesh_path)
@@ -175,7 +181,7 @@ def compute_visualhull(masks, K, projections, mesh_path, box=250):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', type=str, default='/mnt/data4/Lzc/DRT_data')
+    parser.add_argument('--path', type=str, default='/mnt/data4/Lzc/DRT_data')#/mnt/data/lzc/DRT_data  /mnt/data/lzc/DRT/data
     parser.add_argument('--mode', type=str, default='pig')#['mouse', 'monkey', 'hand', 'dog']
     parser.add_argument('--views', type=int, default=9)
     parser.add_argument('--save_path', type=str, default='/mnt/data4/Lzc/DRT_data/data')
@@ -188,6 +194,7 @@ if __name__=='__main__':
     work_dir = args.save_path
     mask_path = args.mask_path
     mesh_path = os.path.join(basedir,  name + str(args.views) + '_vh.ply')
+    # if n_images == 72:
 
     resy = 960   #960 1080 3472
     resx = 1280 # 1280 1920 4624
@@ -196,23 +203,30 @@ if __name__=='__main__':
         w2c, K, masks, screen_points, light_masks = load_h5_(h5_path,
                                                              os.path.join(mask_path, name, 'mask'),
                                                              division=n_images)
+        # compute_visualhull(masks, K, w2c, mesh_path, box=200)
     elif args.mode in ['rabbit', 'pig', 'horse', 'tiger']:# 1080 1920
         w2c, K, masks, screen_points, light_masks = load_h5(h5_path,
                                                             os.path.join(mask_path, name, 'mask'),
                                                             division=n_images)
+        # if not os.path.exists(mesh_path):
+        #     compute_visualhull(masks, K, w2c, mesh_path , box=200)
+
     print('final load data')
+
+    # compute_visualhull
 
     out_dir = os.path.join(work_dir, name+str(n_images))
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(os.path.join(out_dir, 'image'), exist_ok=True)
     os.makedirs(os.path.join(out_dir, 'mask'), exist_ok=True)
     os.makedirs(os.path.join(out_dir, 'light_mask'), exist_ok=True)
-
+    # scale_mat = get_scale_mat(mesh_path=mesh_path)
     for i, img in enumerate(masks):
         print(img.shape)
         cv2.imwrite(os.path.join(out_dir, 'image', '{:0>3d}.png'.format(i)), img*255)
         cv2.imwrite(os.path.join(out_dir, 'mask', '{:0>3d}.png'.format(i)), img*255)
         image_shape = img.shape
+        # light_mask = np.tile(light_masks[i][:, :, None], (1))
         light_mask = light_masks[i]
         imgs = np.zeros((image_shape[0], image_shape[1]))
         imgs[:light_mask.shape[0], :light_mask.shape[1]] = light_mask*255
@@ -239,6 +253,7 @@ if __name__=='__main__':
         cam_dict['scale_mat_{}'.format(i)] = scale_mat
         cam_dict['scale_mat_inv_{}'.format(i)] = np.linalg.inv(scale_mat)
 
+    # 对3D点进行放缩
     scale_screen_points = []
     for i in range(len(screen_points)):
         screen_point = screen_points[i]

@@ -16,11 +16,12 @@ import numpy as np
 from glob import glob
 import scipy.io as scio
 import math
-import torch
+import mindspore as ms
+import mindspore.ops as ops
 import os
-import matplotlib
+# import matplotlib
 import re
-import torchvision
+
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -42,7 +43,7 @@ def compute_mask(args, recompute=False, fscale=0.5):
     ref_img = sorted(glob_imgs(ref_a_path))
     bkcols = []
     for i in range(len(ref_img)):
-        bkcol = torch.from_numpy(
+        bkcol = ms.Tensor(
             cv2.cvtColor(cv2.GaussianBlur(
                 cv2.resize(cv2.imread(ref_img[i]), None, fx=fscale, fy=fscale, interpolation=cv2.INTER_CUBIC),
                 (1, 1), 0, 0), cv2.COLOR_BGR2GRAY)).float()

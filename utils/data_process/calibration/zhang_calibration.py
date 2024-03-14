@@ -6,7 +6,6 @@ from skimage import measure
 import trimesh as trm
 import os.path as osp
 import matplotlib.pyplot as plt
-import torch
 import re
 
 def glob_imgs(path):
@@ -152,7 +151,7 @@ def load_mask(file, fscale=1):
     mask[img>127] = 1
     return mask
 
-def compute_visualhull(args, projections, K , box=200):
+def compute_visualhull(args, projections, K , box=200, plot3Dcam = True):
 
     # initialize visual hull voxels
     """
@@ -191,6 +190,8 @@ def compute_visualhull(args, projections, K , box=200):
     mask_lists = glob(osp.join(base_dir, 'mask', "*.jpg"))
     mask_lists.sort(key=natural_keys)
     print(len(mask_lists))
+    if plot3Dcam == True:
+        plot_3d_cam(mask_lists, projections)
     origins =[]
     for i in range(len(mask_lists)):
         projection = projections[i]
@@ -214,19 +215,20 @@ def compute_visualhull(args, projections, K , box=200):
         xAxis = np.cross(zAxis, yAxis)
         xAxis = xAxis / np.sqrt(np.sum(xAxis * xAxis))
         Rot = np.stack([xAxis, yAxis, zAxis], axis=0)
-
+        #coord - origin 相对于这个相机下的世界坐标系的3D点
+        # rot@(coord-origin)后是相机坐标系下的3D点
         coordCam = np.matmul(Rot, np.expand_dims(coord - origin, axis=4))
 
         coordCam = coordCam.squeeze(4)
         xCam = coordCam[:, :, :, 0] / coordCam[:, :, :, 2]
         yCam = coordCam[:, :, :, 1] / coordCam[:, :, :, 2]
-
+        #体素空间中每一个点的像素坐标
         xId = xCam * f + cxp
         yId = -yCam * f + cyp
 
         xInd = np.logical_and(xId >= 0, xId < imgW - 0.5)
         yInd = np.logical_and(yId >= 0, yId < imgH - 0.5)
-
+        #体素空间中能投影到这个像素平面的3D点mask
         imInd = np.logical_and(xInd, yInd)
 
         xImId = np.round(xId[imInd]).astype(np.int32)
@@ -235,20 +237,20 @@ def compute_visualhull(args, projections, K , box=200):
         maskInd = mask[yImId * imgW + xImId]
 
         volumeInd = imInd.copy()
-
+        #能投影到像素平面上的3D点 将他的值变为mask中对应像素点的值
         volumeInd[imInd == 1] = maskInd
-
+        #==0 表明这个3D点不能投影到mask 内
         volume[volumeInd == 0] = 1
         print('Occupied voxel: %d' % np.sum((volume > 0).astype(np.float32)))
 
         verts, faces, normals, _ = measure.marching_cubes_lewiner(volume, 0)
-
+        #verts 在体素空间中的顶点 需要换成在世界坐标系下的距离
         print('Vertices Num: %d' % verts.shape[0])
         print('Normals Num: %d' % normals.shape[0])
         print('Faces Num: %d' % faces.shape[0])
 
         axisLen = float(resolution - 1) / 2.0
-
+        #分辨率 顶点在真实世界中的3D坐标
         verts = (verts - axisLen) / axisLen * box
         mesh = trm.Trimesh(vertices=verts, vertex_normals=normals, faces=faces)
 
@@ -258,6 +260,11 @@ def compute_visualhull(args, projections, K , box=200):
     print('Export final mesh !')
     meshName = osp.join(base_dir, args.mode+'_vh.ply')
     mesh.export(meshName)
+    cmd = 'xvfb-run -a -s "-screen 0 800x600x24" meshlabserver -i %s -o %s -om vn -s remeshVisualHullNew.mlx' % \
+          ((meshName), (meshName))
+    os.system(cmd)
+    pcd = trm.PointCloud(np.array(origins))
+    pcd.export(os.path.join(base_dir, 'origin.ply'))
 
 def compute_R_T(args=None, basedir=None, imgC1_files=None, imgC2_files=None, K_file=None, recompute=False, imgscreen_files=None ):
     projection_file = osp.join(basedir, 'w2c_mats.npy')

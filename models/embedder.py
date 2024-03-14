@@ -1,6 +1,6 @@
-import torch
-import torch.nn as nn
 import numpy as np
+import mindspore as ms
+import mindspore.ops as ops
 
 # Positional encoding embedding. Code was taken from https://github.com/bmild/nerf.
 class Embedder:
@@ -22,9 +22,9 @@ class Embedder:
         self.N_freqs = self.kwargs['num_freqs']#n
 
         if self.kwargs['log_sampling']:
-            freq_bands = 2. ** torch.linspace(0., max_freq,  self.N_freqs)# 2^0 ~2^n-1
+            freq_bands = 2. ** ops.linspace(0., max_freq,  self.N_freqs)# 2^0 ~2^n-1
         else:
-            freq_bands = torch.linspace(2.**0., 2.**max_freq,  self.N_freqs)
+            freq_bands = ops.linspace(2.**0., 2.**max_freq,  self.N_freqs)
         # for freq in freq_bands:
         for i in range(len(freq_bands)):
             freq = freq_bands[i]
@@ -36,7 +36,7 @@ class Embedder:
         self.out_dim = out_dim
     #
     def embed(self, inputs):
-        return torch.cat([fn(inputs) for fn in self.embed_fns], -1)
+        return ops.cat([fn(inputs) for fn in self.embed_fns], -1)
 
 def get_embedder(multires, input_dims=3):
 
@@ -46,7 +46,7 @@ def get_embedder(multires, input_dims=3):
         'max_freq_log2': multires-1,
         'num_freqs': multires,
         'log_sampling': True,
-        'periodic_fns': [torch.sin, torch.cos],
+        'periodic_fns': [ops.sin, ops.cos],
     }
 
     embedder_obj = Embedder(**embed_kwargs)
