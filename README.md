@@ -50,6 +50,7 @@ Here the `cameras_xxx.npz` follows the data format in [IDR](https://github.com/l
 ### Running
 
 - **Pretrained Data**
+
 4 pretrained MindSpore models are available at [release](https://github.com/nauyihsnehs/NeTO-MindSpore/releases).
 
 - **Training**
